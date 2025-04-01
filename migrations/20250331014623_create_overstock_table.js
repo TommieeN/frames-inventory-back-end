@@ -3,8 +3,9 @@ exports.up = function (knex) {
     table.increments("id").primary();
     table.integer("frame_id").unsigned().notNullable();
     table.string("location").notNullable();
-    table.integer("qty_left").unsigned().defaultTo(0);
-    table.timestamp("last_updated").defaultTo(knex.fn.now());
+    table.integer("start_qty").unsigned().notNullable();
+    table.integer("quantity").unsigned().defaultTo(0);
+    table.timestamp("last_updated").defaultTo(knex.fn.now()).onUpdate(knex.fn.now());
 
     table
       .foreign("frame_id")
