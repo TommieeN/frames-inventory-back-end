@@ -1,8 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const db = require("./db");
+const cors = require("cors");
 
 const app = express();
+
+app.use(cors());
+
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -52,18 +56,41 @@ app.post("/frames", async (req, res) => {
   }
 });
 
+app.get("/frames-overstock", async (req, res) => {
+    try {
+      const overstockData = await db("overstock")
+        .join("frames", "overstock.upc", "=", "frames.upc")
+        .select(
+          "overstock.id",
+          "overstock.upc",
+          "overstock.location",
+          "overstock.quantity",
+          "overstock.last_updated",
+          "frames.sku",
+          "frames.description",
+          "frames.color_code",
+          "frames.brand"
+        )
+        .orderBy("overstock.location", "desc"); // Sort location descending order
+  
+      res.json(overstockData);
+    } catch (error) {
+      console.error("Error fetching overstock data:", error);
+      res.status(500).json({ error: "Failed to fetch frames overstock data" });
+    }
+  });
+  
+
 app.post("/frames-overstock", async (req, res) => {
     const { upc, quantity, location } = req.body;
 
     if (!upc || !quantity || !location) {
         return res.status(400).json({ error: "Missing required fields" });
     }
-
     try {
         await db("overstock").insert({
             upc,
             location,
-            start_qty: quantity,
             quantity,
         });
         res.json({ message: `${upc} stored succesfully at ${location}`});
