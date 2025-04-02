@@ -36,20 +36,41 @@ app.get("/frames/:upc", async (req, res) => {
   }
 });
 
+// Adding frames that don't exist to the database
 app.post("/frames", async (req, res) => {
-  const { upc, sku, name, color, type } = req.body;
+  const { upc, sku, name, color, brand } = req.body;
 
-  if (!upc || !sku || !name || !type) {
+  if (!upc || !sku || !name || !brand) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
-    const [id] = await db("frames").insert({ upc, sku, name, color, type });
+    const [id] = await db("frames").insert({ upc, sku, name, color, brand });
     res.json({ message: "Frame added succesfully", id });
   } catch (error) {
     res.status(500).json({ error: "Failed to add frame" });
   }
 });
+
+app.post("/frames-overstock", async (req, res) => {
+    const { upc, quantity, location } = req.body;
+
+    if (!upc || !quantity || !location) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+        await db("overstock").insert({
+            upc,
+            location,
+            start_qty: quantity,
+            quantity,
+        });
+        res.json({ message: `${upc} stored succesfully at ${location}`});
+    } catch (error) {
+        res.status(500).json({error: "Failed to store overstock data"});
+    }
+})
 
 const PORT = 3333;
 app.listen(PORT, () => {
