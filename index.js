@@ -17,7 +17,6 @@ app.get("/frames", async (req, res) => {
   try {
     const frames = await db("frames").select("*");
     res.json(frames);
-    console.log(frames);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch frames" });
@@ -71,7 +70,7 @@ app.get("/frames-overstock", async (req, res) => {
           "frames.color_code",
           "frames.brand"
         )
-        .orderBy("overstock.location", "desc"); // Sort location descending order
+        .orderBy("overstock.location", "asc"); // Sort location descending order
   
       res.json(overstockData);
     } catch (error) {
@@ -98,6 +97,43 @@ app.post("/frames-overstock", async (req, res) => {
         res.status(500).json({error: "Failed to store overstock data"});
     }
 })
+
+app.post("/frames-overstock/request", async (req, res) => {
+  const { upc, quantity, location } = req.body;
+
+  if (!upc || !quantity || quantity <= 0 || !location) {
+    return res.status(400).json({ error: "Missing or invalid fields." });
+  }
+
+  try {
+    // Check if UPC exists in specific location
+    const frame = await db("overstock")
+      .where({ upc, location })
+      .first();
+
+    if (!frame) {
+      return res.status(404).json({ error: "Frame not found at that location." });
+    }
+
+    if (frame.quantity < quantity) {
+      return res.status(400).json({ error: "Not enough quantity at that location." });
+    }
+
+    // Deduct from that specific UPC & location
+    await db("overstock")
+      .where({ upc, location })
+      .update({
+        quantity: frame.quantity - quantity,
+        last_updated: db.fn.now(),
+      });
+
+    res.status(200).json({ message: `Successfully pulled ${quantity} frames from ${location}.` });
+  } catch (err) {
+    console.error("Request error:", err);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 
 const PORT = 3333;
 app.listen(PORT, () => {
