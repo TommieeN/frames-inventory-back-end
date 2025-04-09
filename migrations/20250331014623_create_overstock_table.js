@@ -1,18 +1,15 @@
 exports.up = function (knex) {
   return knex.schema.createTable("overstock", (table) => {
-    table.increments("id").primary();
-    table.string("upc").notNullable(); // Change to string
+    table.bigIncrements("id").primary();
+    table.bigInteger("upc").unsigned().notNullable();
     table.string("location").notNullable();
-    table.integer("quantity").unsigned().defaultTo(0);
-    table.timestamp("last_updated").defaultTo(knex.fn.now());
+    table.integer("quantity").unsigned().notNullable();
+    table.date("date_received").notNullable();
 
-    table
-      .foreign("upc")
-      .references("upc") // Reference upc in frames, not id
-      .inTable("frames")
-      .onDelete("CASCADE");
+    table.foreign("upc").references("upc").inTable("frames").onDelete("CASCADE");
   });
 };
+
 
 exports.down = function (knex) {
   return knex.schema.dropTableIfExists("overstock");
