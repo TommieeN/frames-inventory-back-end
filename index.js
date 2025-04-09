@@ -96,6 +96,7 @@ app.post("/frames-overstock", async (req, res) => {
     });
     res.json({ message: `${upc} stored succesfully at ${location}` });
   } catch (error) {
+    console.error(error)
     res.status(500).json({ error: "Failed to store overstock data" });
   }
 });

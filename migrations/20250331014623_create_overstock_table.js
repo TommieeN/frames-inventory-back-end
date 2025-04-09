@@ -4,7 +4,7 @@ exports.up = function (knex) {
     table.bigInteger("upc").unsigned().notNullable();
     table.string("location").notNullable();
     table.integer("quantity").unsigned().notNullable();
-    table.date("date_received").notNullable();
+    table.timestamp("last_updated").defaultTo(knex.fn.now());
 
     table.foreign("upc").references("upc").inTable("frames").onDelete("CASCADE");
   });
