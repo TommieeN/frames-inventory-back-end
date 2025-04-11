@@ -4,6 +4,7 @@ const db = require("./db");
 const cors = require("cors");
 const restockRequestRoutes = require("./routes/restockRequests");
 
+
 const app = express();
 
 app.use(cors());
@@ -98,6 +99,47 @@ app.post("/frames-overstock", async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Failed to store overstock data" });
+  }
+});
+
+app.get("/restock-requests", async (req, res) => {
+  try {
+    const requests = await db("restock_requests")
+      .join("frames", "restock_requests.upc", "frames.upc")
+      .select(
+        "restock_requests.id",
+        "restock_requests.upc",
+        "restock_requests.quantity_requested",
+        "restock_requests.status",
+        "restock_requests.requested_at",
+        "frames.sku",
+        "frames.description",
+        "frames.color_code",
+        "frames.brand"
+      )
+      .where("restock_requests.status", "PENDING")
+      .orderBy("restock_requests.requested_at", "asc");
+
+    res.json(requests);
+  } catch (err) {
+    console.error("Error fetching restock requests:", err);
+    res.status(500).json({ error: "Failed to fetch requests" });
+  }
+});
+
+app.post("/restock-requests", async (req, res) => {
+  const { upc, quantity_requested } = req.body;
+
+  try {
+    await db("restock_requests").insert({
+      upc,
+      quantity_requested,
+    });
+
+    res.status(201).json({ message: "Restock request created" });
+  } catch (err) {
+    console.error("Error inserting restock request:", err);
+    res.status(500).json({ error: "Failed to create request" });
   }
 });
 
