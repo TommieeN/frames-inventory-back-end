@@ -2,19 +2,16 @@ require("dotenv").config();
 const express = require("express");
 const db = require("./db");
 const cors = require("cors");
-
 const app = express();
 
 app.use(cors());
-
 app.use(express.json());
-
-// app.use("/restock-requests", restockRequestRoutes);
 
 app.get("/", (req, res) => {
   res.send("Frames Inventory API is running!");
 });
 
+// GET for all frames
 app.get("/frames", async (req, res) => {
   try {
     const frames = await db("frames").select("*");
@@ -25,6 +22,7 @@ app.get("/frames", async (req, res) => {
   }
 });
 
+// GET for info on scanned upc
 app.get("/frames/:upc", async (req, res) => {
   try {
     const { upc } = req.params;
@@ -41,22 +39,7 @@ app.get("/frames/:upc", async (req, res) => {
   }
 });
 
-// Adding frames that don't exist to the database
-app.post("/frames", async (req, res) => {
-  const { upc, sku, name, color, brand } = req.body;
-
-  if (!upc || !sku || !name || !brand) {
-    return res.status(400).json({ error: "Missing required fields" });
-  }
-
-  try {
-    const [id] = await db("frames").insert({ upc, sku, name, color, brand });
-    res.json({ message: "Frame added succesfully", id });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to add frame" });
-  }
-});
-
+// GET for all frames in overstock
 app.get("/frames-overstock", async (req, res) => {
   try {
     const overstockData = await db("overstock")
@@ -81,6 +64,7 @@ app.get("/frames-overstock", async (req, res) => {
   }
 });
 
+// POST for adding frames into overstock
 app.post("/frames-overstock", async (req, res) => {
   const { upc, quantity, location } = req.body;
 
@@ -100,7 +84,7 @@ app.post("/frames-overstock", async (req, res) => {
   }
 });
 
-// GET route for list of requests
+// GET for list of requests
 app.get("/restock-requests", async (req, res) => {
   try {
     const requests = await db("restock_requests")
@@ -155,7 +139,7 @@ app.get("/restock-requests", async (req, res) => {
   }
 });
 
-// POST /restock-requests
+// POST to add requests
 app.post("/restock-requests", async (req, res) => {
   const { upc } = req.body;
 
@@ -170,7 +154,6 @@ app.post("/restock-requests", async (req, res) => {
       return res.status(404).json({ error: "Frame with this UPC not found." });
     }
 
-    const newRequest = await db("restock_requests").insert({ upc });
     res.status(201).json({ message: "Restock request created." });
   } catch (err) {
     console.error("Error creating request:", err);
@@ -178,7 +161,7 @@ app.post("/restock-requests", async (req, res) => {
   }
 });
 
-// PATCH /restock-requests/:id/complete
+// PATCH to edit requests
 app.patch("/restock-requests/:id/complete", async (req, res) => {
   const { id } = req.params;
   const { delivered_quantity, pulled_from_location } = req.body;
@@ -241,30 +224,44 @@ app.put("/restock-requests/:id/complete", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Update request
-    await db("restock_requests")
-      .where({ id })
-      .update({
-        status: "DELIVERED",
-        completed_at: db.fn.now(),
-        delivered_quantity,
-        pulled_from_location,
-      });
+    // 1. Get the UPC for this request
+    const request = await db("restock_requests").where({ id }).first();
+    if (!request) {
+      return res.status(404).json({ error: "Restock request not found." });
+    }
 
-    // Update overstock quantity
+    const { upc } = request;
+
+    // 2. Get current overstock record
     const current = await db("overstock")
-      .where({
-        upc: db("restock_requests").select("upc").where({ id }),
-        location: pulled_from_location,
-      })
+      .where({ upc, location: pulled_from_location })
       .first();
 
-    if (current) {
+    // 3. ❌ If location doesn't exist, notify the picker
+    if (!current) {
+      return res.status(400).json({
+        error: `No overstock available for UPC ${upc} at location "${pulled_from_location}".`,
+      });
+    }
+
+    // 4. Proceed to update restock request
+    await db("restock_requests").where({ id }).update({
+      status: "DELIVERED",
+      completed_at: db.fn.now(),
+      delivered_quantity,
+      pulled_from_location,
+    });
+
+    // 5. Calculate new quantity
+    const newQty = Math.max(current.quantity - delivered_quantity, 0);
+
+    // 6. Update or delete overstock record
+    if (newQty === 0) {
+      await db("overstock").where({ upc, location: pulled_from_location }).del();
+    } else {
       await db("overstock")
-        .where({ upc: current.upc, location: pulled_from_location })
-        .update({
-          quantity: Math.max(current.quantity - delivered_quantity, 0),
-        });
+        .where({ upc, location: pulled_from_location })
+        .update({ quantity: newQty });
     }
 
     res.json({ message: "Request completed and overstock updated." });

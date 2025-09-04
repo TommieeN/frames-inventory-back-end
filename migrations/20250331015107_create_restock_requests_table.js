@@ -7,7 +7,6 @@ exports.up = function (knex) {
     table.timestamp("completed_at").nullable();
     table.integer("delivered_quantity").unsigned().nullable();
     table.string("pulled_from_location").nullable();
-
     table
       .foreign("upc")
       .references("upc")

@@ -5,7 +5,6 @@ exports.up = function (knex) {
     table.string("location").notNullable();
     table.integer("quantity").unsigned().notNullable();
     table.timestamp("last_updated").defaultTo(knex.fn.now());
-
     table.foreign("upc").references("upc").inTable("frames").onDelete("CASCADE");
   });
 };
