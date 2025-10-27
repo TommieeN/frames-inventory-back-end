@@ -129,14 +129,19 @@ router.patch("/:id/complete", async (req, res) => {
 
         totalDelivered += quantity;
       }
-
+      const pulledLocations = await trx("overstock")
+        .whereIn(
+          "id",
+          batches.map((b) => b.overstock_id)
+        )
+        .pluck("location");
       // update restock request
       await trx("restock_requests")
         .where({ id })
         .update({
           status: "DELIVERED",
           delivered_quantity: totalDelivered,
-          pulled_from_location: batches.map((b) => b.overstock_id).join(","), // store batch IDs
+          pulled_from_location: pulledLocations.join(", "), // store location names
           completed_at: trx.fn.now(),
         });
     });
