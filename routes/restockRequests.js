@@ -17,6 +17,7 @@ router.get("/", async (req, res) => {
         "restock_requests.completed_at",
         "restock_requests.delivered_quantity",
         "restock_requests.pulled_from_location",
+        "overstock.id as overstock_id",
         "overstock.location",
         "overstock.quantity"
       )
@@ -42,6 +43,7 @@ router.get("/", async (req, res) => {
       }
       if (row.location) {
         grouped[row.id].overstock_locations.push({
+          id: row.overstock_id,
           location: row.location,
           quantity: row.quantity,
         });
@@ -72,7 +74,9 @@ router.post("/", async (req, res) => {
 
     const newRequest = await db("restock_requests").where({ id }).first();
 
-    res.status(201).json({ message: "Restock request created", restockRequest: newRequest });
+    res
+      .status(201)
+      .json({ message: "Restock request created", restockRequest: newRequest });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
@@ -82,38 +86,70 @@ router.post("/", async (req, res) => {
 // PATCH complete request
 router.patch("/:id/complete", async (req, res) => {
   const { id } = req.params;
-  const { delivered_quantity, pulled_from_location } = req.body;
+  const { batches } = req.body; // array of { overstock_id, quantity }
 
-  if (!delivered_quantity || !pulled_from_location)
-    return res.status(400).json({ error: "Quantity and location required." });
+  if (!batches || !Array.isArray(batches) || batches.length === 0) {
+    return res.status(400).json({ error: "Batches are required." });
+  }
 
   try {
     const request = await db("restock_requests").where({ id }).first();
-    if (!request) return res.status(404).json({ error: "Restock request not found" });
+    if (!request)
+      return res.status(404).json({ error: "Restock request not found." });
 
-    await db("restock_requests").where({ id }).update({
-      status: "DELIVERED",
-      delivered_quantity,
-      pulled_from_location,
-      completed_at: db.fn.now(),
+    let totalDelivered = 0;
+
+    await db.transaction(async (trx) => {
+      for (const batch of batches) {
+        const { overstock_id, quantity } = batch;
+
+        const overstock = await trx("overstock")
+          .where({ id: overstock_id })
+          .first();
+        if (!overstock)
+          throw {
+            status: 404,
+            message: `Overstock batch ${overstock_id} not found`,
+          };
+        if (overstock.quantity < quantity)
+          throw {
+            status: 400,
+            message: `Not enough quantity in batch ${overstock_id}`,
+          };
+
+        // decrement the batch
+        const newQty = overstock.quantity - quantity;
+        if (newQty === 0) {
+          await trx("overstock").where({ id: overstock_id }).del();
+        } else {
+          await trx("overstock")
+            .where({ id: overstock_id })
+            .update({ quantity: newQty });
+        }
+
+        totalDelivered += quantity;
+      }
+
+      // update restock request
+      await trx("restock_requests")
+        .where({ id })
+        .update({
+          status: "DELIVERED",
+          delivered_quantity: totalDelivered,
+          pulled_from_location: batches.map((b) => b.overstock_id).join(","), // store batch IDs
+          completed_at: trx.fn.now(),
+        });
     });
 
-    const overstock = await db("overstock")
-      .where({ upc: request.upc, location: pulled_from_location })
-      .first();
-
-    if (!overstock) return res.status(404).json({ error: "Overstock location not found." });
-    if (overstock.quantity < delivered_quantity)
-      return res.status(400).json({ error: "Not enough quantity in overstock." });
-
-    await db("overstock")
-      .where({ upc: request.upc, location: pulled_from_location })
-      .decrement("quantity", delivered_quantity);
-
-    res.json({ message: "Restock request marked as delivered and overstock updated." });
+    res.json({
+      message: "Restock request completed successfully",
+      totalDelivered,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal server error." });
+    res
+      .status(err.status || 500)
+      .json({ error: err.message || "Internal server error" });
   }
 });
 
