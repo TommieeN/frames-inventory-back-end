@@ -154,7 +154,20 @@ app.post("/restock-requests", async (req, res) => {
       return res.status(404).json({ error: "Frame with this UPC not found." });
     }
 
-    res.status(201).json({ message: "Restock request created." });
+    const [id] = await db("restock_requests").insert({
+      upc,
+      status: "PENDING",
+      requested_at: new Date(),
+    });
+
+    const newRequest = await db("restock_requests").where({ id }).first();
+
+    res
+      .status(201)
+      .json({
+        message: "Restock request created.",
+        restockRequest: newRequest,
+      });
   } catch (err) {
     console.error("Error creating request:", err);
     res.status(500).json({ error: "Internal server error." });
@@ -257,7 +270,9 @@ app.put("/restock-requests/:id/complete", async (req, res) => {
 
     // 6. Update or delete overstock record
     if (newQty === 0) {
-      await db("overstock").where({ upc, location: pulled_from_location }).del();
+      await db("overstock")
+        .where({ upc, location: pulled_from_location })
+        .del();
     } else {
       await db("overstock")
         .where({ upc, location: pulled_from_location })
@@ -270,7 +285,6 @@ app.put("/restock-requests/:id/complete", async (req, res) => {
     res.status(500).json({ error: "Failed to complete request." });
   }
 });
-
 
 const PORT = 3333;
 app.listen(PORT, () => {
