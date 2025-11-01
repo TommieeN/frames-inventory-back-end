@@ -37,11 +37,11 @@ router.get("/", async (req, res) => {
           status: row.status,
           completed_at: row.completed_at,
           delivered_quantity: row.delivered_quantity,
-          pulled_from_location: row.pulled_from_location,
+          pulled_from_location: row.pulled_from_location ? JSON.parse(row.pulled_from_location).map(b => b.location).join(", ") : null,
           overstock_locations: [],
         };
       }
-      if (row.location) {
+      if (row.status === "PENDING" && row.location) {
         grouped[row.id].overstock_locations.push({
           id: row.overstock_id,
           location: row.location,
@@ -98,6 +98,7 @@ router.patch("/:id/complete", async (req, res) => {
       return res.status(404).json({ error: "Restock request not found." });
 
     let totalDelivered = 0;
+    const pulledSnapShot = []
 
     await db.transaction(async (trx) => {
       for (const batch of batches) {
@@ -117,6 +118,12 @@ router.patch("/:id/complete", async (req, res) => {
             message: `Not enough quantity in batch ${overstock_id}`,
           };
 
+          pulledSnapShot.push({
+            overstock_id,
+            location: overstock.location,
+            quantity,
+          })
+
         // decrement the batch
         const newQty = overstock.quantity - quantity;
         if (newQty === 0) {
@@ -135,13 +142,14 @@ router.patch("/:id/complete", async (req, res) => {
           batches.map((b) => b.overstock_id)
         )
         .pluck("location");
+        
       // update restock request
       await trx("restock_requests")
         .where({ id })
         .update({
           status: "DELIVERED",
           delivered_quantity: totalDelivered,
-          pulled_from_location: pulledLocations.join(", "), // store location names
+          pulled_from_location: JSON.stringify(pulledSnapShot), // store location names
           completed_at: trx.fn.now(),
         });
     });
