@@ -45,7 +45,10 @@ router.get("/", async (req, res) => {
           try {
             grouped[row.id].overstock_locations = JSON.parse(
               row.pulled_from_location
-            );
+            ).map((loc) => ({
+              ...loc,
+              remaining_quantity: loc.total_quantity - loc.quantity,
+            }));
           } catch (e) {
             console.error(
               `Failed to parse pulled_from_location for request ${row.id}`
@@ -136,6 +139,7 @@ router.patch("/:id/complete", async (req, res) => {
           overstock_id,
           location: overstock.location,
           quantity,
+          total_quantity: overstock.quantity,
         });
 
         // decrement the batch
