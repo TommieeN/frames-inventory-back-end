@@ -184,4 +184,33 @@ router.patch("/:id/complete", async (req, res) => {
   }
 });
 
+// PATCH edit request
+
+router.patch("/:id", async (req,res) => {
+  const { id } = req.params;
+  const { upc, status, delivered_quantity } = req.body
+
+  try {
+    const existing = await db("restock_requests").where({ id }).first();
+    if(!existing)
+      return res.status(404).json({ error: "Restock request not found." });
+
+    const updateData = {};
+    if (upc) updateData.upc = upc;
+    if (status) updateData.status = status;
+    if (delivered_quantity !== undefined)
+      updateData.delivered_quantity = delivered_quantity;
+
+    updateData.updated_at = new Date();
+
+    await db("restock_requests").where({ id }).update(updateData);
+
+    const updated = await db ("restock_requests").where({ id }).first();
+    res.json({ message: "Restock request updated successfully", updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update restock request" });
+  }
+})
+
 module.exports = router;
