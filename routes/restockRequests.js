@@ -154,12 +154,6 @@ router.patch("/:id/complete", async (req, res) => {
 
         totalDelivered += quantity;
       }
-      const pulledLocations = await trx("overstock")
-        .whereIn(
-          "id",
-          batches.map((b) => b.overstock_id)
-        )
-        .pluck("location");
 
       // update restock request
       await trx("restock_requests")
@@ -184,33 +178,21 @@ router.patch("/:id/complete", async (req, res) => {
   }
 });
 
-// PATCH edit request
-
-router.patch("/:id", async (req,res) => {
+// DELETE restock request
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  const { upc, status, delivered_quantity } = req.body
 
   try {
     const existing = await db("restock_requests").where({ id }).first();
-    if(!existing)
+    if (!existing)
       return res.status(404).json({ error: "Restock request not found." });
 
-    const updateData = {};
-    if (upc) updateData.upc = upc;
-    if (status) updateData.status = status;
-    if (delivered_quantity !== undefined)
-      updateData.delivered_quantity = delivered_quantity;
-
-    updateData.updated_at = new Date();
-
-    await db("restock_requests").where({ id }).update(updateData);
-
-    const updated = await db ("restock_requests").where({ id }).first();
-    res.json({ message: "Restock request updated successfully", updated });
+    await db("restock_requests").where({ id }).del();
+    res.json({ message: `Restock request ${id} deleted successfully` });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update restock request" });
+    res.status(500).json({ error: "Failed to delete restock request" });
   }
-})
+});
 
 module.exports = router;
