@@ -42,4 +42,24 @@ router.post("/", async (req, res) => {
   }
 });
 
+// DELETE overstock
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const existing = await db("overstock").where({ id }).first();
+    if (!existing)
+      return res.status(404).json({ error: "Overstock not found." });
+
+    await db("overstock").where({ id }).del();
+    res.json({
+      message: `Overstock ${id} deleted successfully`,
+      deleted: existing,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete restock request" });
+  }
+});
+
 module.exports = router;

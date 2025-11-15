@@ -188,7 +188,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Restock request not found." });
 
     await db("restock_requests").where({ id }).del();
-    res.json({ message: `Restock request ${id} deleted successfully` });
+    res.json({ message: `Restock request ${id} deleted succesfully` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete restock request" });
