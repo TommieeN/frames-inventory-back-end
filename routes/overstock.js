@@ -62,4 +62,24 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// EDIT overstock
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { upc, location, quantity } = req.body;
+  try {
+    const result = await db("overstock") // <- use 'db' and correct table name
+      .where({ id })
+      .update({ upc, location, quantity, last_updated: db.fn.now() });
+
+    if (result === 0) {
+      return res.status(404).json({ error: "Overstock item not found" });
+    }
+
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
