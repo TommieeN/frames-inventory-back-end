@@ -2,18 +2,24 @@
 
 REST API for the Frames Inventory management system. Handles eyewear frame data, overstock locations, and restock requests.
 
+🔗 **Frontend:** [https://frames-inventory-front-end.vercel.app](https://frames-inventory-front-end.vercel.app)
+
+---
+
 ## Tech Stack
 
 - **Node.js** + **Express**
-- **MySQL**
+- **PostgreSQL**
 - **Knex.js** — query builder, migrations, and seeds
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js v18+
-- MySQL
+- A PostgreSQL database ([Neon](https://neon.tech) free tier recommended)
 
 ### Installation
 
@@ -32,7 +38,10 @@ REST API for the Frames Inventory management system. Handles eyewear frame data,
    ```bash
    cp .env.example .env
    ```
-   Open `.env` and fill in your database credentials.
+   Add your PostgreSQL connection string to `.env`:
+   ```
+   DATABASE_URL=postgresql://user:pass@host/dbname?sslmode=require
+   ```
 
 4. Run migrations
    ```bash
@@ -43,6 +52,7 @@ REST API for the Frames Inventory management system. Handles eyewear frame data,
    ```bash
    npx knex seed:run
    ```
+   This loads 127 dummy frames, 12 overstock entries, and 3 restock requests.
 
 6. Start the server
    ```bash
@@ -109,6 +119,8 @@ REST API for the Frames Inventory management system. Handles eyewear frame data,
 | requested_at | TIMESTAMP | When the request was created |
 | completed_at | TIMESTAMP | When the request was fulfilled |
 | delivered_quantity | INT | Total units pulled |
+
+---
 
 ## Related
 
