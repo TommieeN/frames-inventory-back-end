@@ -22,7 +22,7 @@ router.get("/", async (req, res) => {
         "overstock.quantity"
       )
       .orderByRaw(
-        `FIELD(restock_requests.status, 'PENDING', 'DELIVERED'), restock_requests.completed_at ASC`
+        `CASE WHEN restock_requests.status = 'PENDING' THEN 1 ELSE 2 END, restock_requests.completed_at ASC`
       );
 
     const grouped = {};

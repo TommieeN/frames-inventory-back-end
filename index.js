@@ -19,7 +19,7 @@ app.use("/frames", framesRoutes);
 app.use("/frames-overstock", overstockRoutes);
 app.use("/restock-requests", restockRoutes);
 
-const PORT = process.env.PORT || 3333;
+const PORT = process.env.PORT || 2222;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
