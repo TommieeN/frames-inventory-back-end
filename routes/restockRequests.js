@@ -83,11 +83,9 @@ router.post("/", async (req, res) => {
     const frame = await db("frames").where({ upc }).first();
     if (!frame) return res.status(404).json({ error: "Frame not found" });
 
-    const [id] = await db("restock_requests").insert({
-      upc,
-      status: "PENDING",
-      requested_at: new Date(),
-    });
+    const [{ id }] = await db("restock_requests")
+      .insert({ upc, status: "PENDING", requested_at: new Date() })
+      .returning("id");
 
     const newRequest = await db("restock_requests").where({ id }).first();
 
